@@ -483,6 +483,17 @@ textarea:focus-visible {
   font-size: 1.8rem;
 }
 
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.planner-language-switch {
+  flex: 0 0 auto;
+}
+
 .topbar p {
   margin: 0.2rem 0 0;
   color: var(--muted);
@@ -878,6 +889,10 @@ td {
 }
 
 @media (max-width: 980px) {
+  .topbar {
+    flex-direction: column;
+  }
+
   .start-hero {
     grid-template-columns: 1fr;
     min-height: auto;

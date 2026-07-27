@@ -1,11 +1,10 @@
 import { ArrowRight, BarChart3, Database, Globe2, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+
+import { useLanguage } from '../i18n/language';
 
 interface StartPageProps {
   onOpenPlanner: () => void;
 }
-
-type Language = 'de' | 'en';
 
 const copy = {
   de: {
@@ -41,7 +40,7 @@ const copy = {
 const featureIcons = [BarChart3, Database, ShieldCheck];
 
 export const StartPage = ({ onOpenPlanner }: StartPageProps) => {
-  const [language, setLanguage] = useState<Language>('de');
+  const { language, setLanguage } = useLanguage();
   const content = copy[language];
 
   return (

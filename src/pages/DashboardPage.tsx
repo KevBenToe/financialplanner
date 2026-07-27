@@ -10,8 +10,10 @@ import { PlanEditor } from '../components/PlanEditor';
 import { PlanSidebar } from '../components/PlanSidebar';
 import { StartChoiceModal } from '../components/StartChoiceModal';
 import { useFinanceApp } from '../hooks/useFinanceApp';
+import { useLanguage } from '../i18n/language';
 
 export const DashboardPage = () => {
+  const { language, setLanguage } = useLanguage();
   const {
     state,
     selectedPlan,
@@ -92,10 +94,14 @@ export const DashboardPage = () => {
 
       <main className="main-content">
         <header className="topbar">
-          <h1>Finanz- und Sparplan-Simulator</h1>
-          <p>
-            Simulationstool ohne Anlage- oder Steuerberatung. Steuerberechnung ist vereinfacht.
-          </p>
+          <div>
+            <h1>{language === 'de' ? 'Finanz- und Sparplan-Simulator' : 'Financial and Savings Plan Simulator'}</h1>
+            <p>{language === 'de' ? 'Simulationstool ohne Anlage- oder Steuerberatung. Steuerberechnung ist vereinfacht.' : 'A planning simulation, not investment or tax advice. Tax calculations are simplified.'}</p>
+          </div>
+          <div className="language-switch planner-language-switch" aria-label={language === 'de' ? 'Sprache' : 'Language'}>
+            <button type="button" className={language === 'de' ? 'active' : ''} onClick={() => setLanguage('de')} aria-pressed={language === 'de'}>DE</button>
+            <button type="button" className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')} aria-pressed={language === 'en'}>EN</button>
+          </div>
         </header>
 
         <AppStatusBar />
@@ -108,14 +114,14 @@ export const DashboardPage = () => {
 
         <section className="projection-date-control" aria-label="Berechnungsstichtag">
           <div>
-            <h2>Berechnungsstichtag</h2>
-            <p>Standard: heute. Die Auswahl aendert nur die Anzeige und nicht die Planenddaten.</p>
+            <h2>{language === 'de' ? 'Berechnungsstichtag' : 'Calculation date'}</h2>
+            <p>{language === 'de' ? 'Standard: heute. Die Auswahl aendert nur die Anzeige und nicht die Planenddaten.' : 'Default: today. This only changes the display, not saved plan end dates.'}</p>
           </div>
           <div className="projection-date-actions">
-            <button type="button" onClick={() => setProjectionEndDate(new Date().toISOString().slice(0, 10))}>Heute</button>
-            {[10, 20, 30].map((years) => <button key={years} type="button" onClick={() => selectHorizon(years)}>+{years} Jahre</button>)}
+            <button type="button" onClick={() => setProjectionEndDate(new Date().toISOString().slice(0, 10))}>{language === 'de' ? 'Heute' : 'Today'}</button>
+            {[10, 20, 30].map((years) => <button key={years} type="button" onClick={() => selectHorizon(years)}>+{years} {language === 'de' ? 'Jahre' : 'years'}</button>)}
             <label>
-              <span>Datum</span>
+              <span>{language === 'de' ? 'Datum' : 'Date'}</span>
               <input type="date" value={state.projectionEndDate} onChange={(event) => setProjectionEndDate(event.target.value)} />
             </label>
           </div>

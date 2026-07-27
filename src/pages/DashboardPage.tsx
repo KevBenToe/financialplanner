@@ -132,6 +132,7 @@ export const DashboardPage = () => {
             <FinanceChart
               plans={state.plans}
               projections={state.projections}
+              viewMode="dashboard"
               onPlanSelect={(planId) => {
                 setSelectedPlanId(planId);
                 setActiveView('plan');
@@ -148,7 +149,7 @@ export const DashboardPage = () => {
         ) : (
           <>
             <KpiCards selectedPlan={selectedPlan} projection={selectedProjection} projectionEndDate={state.projectionEndDate} />
-            <FinanceChart plans={selectedPlan ? [selectedPlan] : []} projections={state.projections} showHiddenPlans />
+            <FinanceChart plans={selectedPlan ? [selectedPlan] : []} projections={state.projections} showHiddenPlans viewMode="plan" />
             <PlanEditor plan={selectedPlan} onSave={persistPlan} />
           </>
         )}

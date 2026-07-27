@@ -9,9 +9,14 @@ interface FinanceChartProps {
   projections: PlanProjectionResult[];
   onPlanSelect?: (planId: string) => void;
   showHiddenPlans?: boolean;
+  viewMode?: 'dashboard' | 'plan';
 }
 
-const buildSeries = (plan: SavingsPlan, projection: PlanProjectionResult) => {
+const buildSeries = (
+  plan: SavingsPlan,
+  projection: PlanProjectionResult,
+  includePlanDetails: boolean,
+) => {
   const base = projection.scenarios.find((s) => s.scenario === 'base');
   const min = projection.scenarios.find((s) => s.scenario === 'min');
   const max = projection.scenarios.find((s) => s.scenario === 'max');
@@ -65,7 +70,45 @@ const buildSeries = (plan: SavingsPlan, projection: PlanProjectionResult) => {
       }
     : null;
 
-  return [baseSeries, ownSeries, minSeries, maxSeries].filter(Boolean);
+  return includePlanDetails
+    ? [baseSeries, ownSeries, minSeries, maxSeries].filter(Boolean)
+    : [baseSeries];
+};
+
+const buildPortfolioSeries = (plans: SavingsPlan[], projections: PlanProjectionResult[]) => {
+  const scenarioPoints = plans.flatMap((plan) => {
+    const points = projections
+      .find((projection) => projection.planId === plan.id)
+      ?.scenarios.find((scenario) => scenario.scenario === 'base')?.points;
+
+    return points ? [{ planId: plan.id, points }] : [];
+  });
+  const dates = [...new Set(scenarioPoints.flatMap((item) => item.points.map((point) => point.date)))].sort();
+  const indices = new Map(scenarioPoints.map((item) => [item.planId, 0]));
+
+  return {
+    id: 'portfolio:total-value',
+    name: 'Gesamtwert aller Sparplaene',
+    type: 'line',
+    smooth: true,
+    showSymbol: false,
+    z: 10,
+    lineStyle: { width: 3, opacity: 1, color: '#102a1b' },
+    areaStyle: { opacity: 0, color: '#102a1b' },
+    data: dates.map((date) => {
+      const totalValue = scenarioPoints.reduce((sum, item) => {
+        let index = indices.get(item.planId) ?? 0;
+        while (index + 1 < item.points.length && item.points[index + 1].date <= date) {
+          index += 1;
+        }
+        indices.set(item.planId, index);
+        const point = item.points[index];
+        return sum + (point?.date <= date ? point.totalValue : 0);
+      }, 0);
+
+      return [date, totalValue / 100];
+    }),
+  };
 };
 
 interface AnnualBarRow {
@@ -119,7 +162,13 @@ const buildAnnualBarRows = (
   return [...rows.values()].sort((left, right) => left.year.localeCompare(right.year));
 };
 
-export const FinanceChart = ({ plans, projections, onPlanSelect, showHiddenPlans = false }: FinanceChartProps) => {
+export const FinanceChart = ({
+  plans,
+  projections,
+  onPlanSelect,
+  showHiddenPlans = false,
+  viewMode = 'dashboard',
+}: FinanceChartProps) => {
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   const visiblePlans = showHiddenPlans ? plans : plans.filter((plan) => plan.visibleInChart);
 
@@ -129,8 +178,12 @@ export const FinanceChart = ({ plans, projections, onPlanSelect, showHiddenPlans
       return [];
     }
 
-    return buildSeries(plan, projection);
+    return buildSeries(plan, projection, viewMode === 'plan');
   });
+
+  if (viewMode === 'dashboard') {
+    series.push(buildPortfolioSeries(visiblePlans, projections));
+  }
 
   const annualBarRows = buildAnnualBarRows(visiblePlans, projections);
 
@@ -222,7 +275,7 @@ export const FinanceChart = ({ plans, projections, onPlanSelect, showHiddenPlans
       <div className="chart-header">
         <div>
           <h3>Wertentwicklung</h3>
-          <p>{chartType === 'line' ? 'Kurve auswaehlen fuer Einzelansicht.' : 'Jaehrliche Aufschluesselung nach Steuer und Inflation.'}</p>
+          <p>{chartType === 'line' ? viewMode === 'dashboard' ? 'Basiswerte und Gesamtwert aller sichtbaren Sparplaene.' : 'Basiswert, Einzahlungen sowie Min-/Max-Szenarien.' : 'Jaehrliche Aufschluesselung nach Steuer und Inflation.'}</p>
         </div>
         <div className="chart-controls">
           <span>{visiblePlans.length} von {plans.length} Kurven sichtbar</span>

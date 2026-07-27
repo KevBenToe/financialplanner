@@ -159,7 +159,13 @@ const buildAnnualBarRows = (
     }
   }
 
-  return [...rows.values()].sort((left, right) => left.year.localeCompare(right.year));
+  let cumulativeOwnContributions = 0;
+  return [...rows.values()]
+    .sort((left, right) => left.year.localeCompare(right.year))
+    .map((row) => {
+      cumulativeOwnContributions += row.ownContributions;
+      return { ...row, ownContributions: cumulativeOwnContributions };
+    });
 };
 
 export const FinanceChart = ({
@@ -245,7 +251,7 @@ export const FinanceChart = ({
     series: [
       {
         id: 'bar:own-contributions',
-        name: 'Eigene Einzahlungen',
+        name: 'Eigene Einzahlungen (kumuliert)',
         type: 'bar',
         stack: 'jahr',
         itemStyle: { color: '#1f7a8c' },

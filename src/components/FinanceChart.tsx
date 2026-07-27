@@ -160,11 +160,20 @@ const buildAnnualBarRows = (
   }
 
   let cumulativeOwnContributions = 0;
+  let cumulativeSubsidies = 0;
+  let cumulativeNetInterestAfterTaxAndInflation = 0;
   return [...rows.values()]
     .sort((left, right) => left.year.localeCompare(right.year))
     .map((row) => {
       cumulativeOwnContributions += row.ownContributions;
-      return { ...row, ownContributions: cumulativeOwnContributions };
+      cumulativeSubsidies += row.subsidies;
+      cumulativeNetInterestAfterTaxAndInflation += row.netInterestAfterTaxAndInflation;
+      return {
+        ...row,
+        ownContributions: cumulativeOwnContributions,
+        subsidies: cumulativeSubsidies,
+        netInterestAfterTaxAndInflation: cumulativeNetInterestAfterTaxAndInflation,
+      };
     });
 };
 
@@ -259,7 +268,7 @@ export const FinanceChart = ({
       },
       {
         id: 'bar:subsidies',
-        name: 'Zuschuesse',
+        name: 'Zuschuesse (kumuliert)',
         type: 'bar',
         stack: 'jahr',
         itemStyle: { color: '#3b9c5f' },
@@ -267,7 +276,7 @@ export const FinanceChart = ({
       },
       {
         id: 'bar:net-interest',
-        name: 'Zinsen nach Steuer und Inflation',
+        name: 'Zinsen nach Steuer, Gebuehren und Inflation (kumuliert)',
         type: 'bar',
         stack: 'jahr',
         itemStyle: { color: '#d97706' },

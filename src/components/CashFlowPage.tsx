@@ -1,82 +1,125 @@
-import { useState } from 'react';
-import { PiggyBank, Plus, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CirclePlus, PencilLine, PiggyBank, Plus, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
 
-import type { CashFlowCategory } from '../domain/types';
+import type { CashFlowCategoryConfig, CashFlowEntry } from '../domain/types';
 import { useCashFlow } from '../hooks/useCashFlow';
+import { createId } from '../utils/id';
 import { formatCurrency } from '../utils/money';
 
 type ViewMode = 'monthly' | 'annual';
 
-interface CategoryMeta {
-  id: Exclude<CashFlowCategory, 'income'>;
-  label: string;
-  color: string;
-}
+type EntryKind = 'income' | 'expense';
 
-const EXPENSE_CATEGORIES: CategoryMeta[] = [
-  { id: 'housing', label: 'Wohnen', color: '#3b82f6' },
-  { id: 'insurance', label: 'Versicherungen', color: '#a855f7' },
-  { id: 'contracts', label: 'Vertraege', color: '#06b6d4' },
-  { id: 'pension', label: 'Rente / Altersvorsorge', color: '#f59e0b' },
-  { id: 'savings', label: 'Sparen / Investieren', color: '#10b981' },
-  { id: 'mobility', label: 'Mobilitaet', color: '#f97316' },
-  { id: 'groceries', label: 'Lebensmittel', color: '#84cc16' },
-  { id: 'entertainment', label: 'Freizeit', color: '#ec4899' },
-  { id: 'other', label: 'Sonstiges', color: '#94a3b8' },
-];
+const addMonths = (isoDate: string, months: number) => {
+  const date = new Date(`${isoDate}T00:00:00`);
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString().slice(0, 10);
+};
 
-const CATEGORY_MAP = new Map(EXPENSE_CATEGORIES.map((c) => [c.id, c]));
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
-interface CashFlowEntry {
-  id: string;
-  label: string;
-  amountCents: number;
-  frequency: 'monthly' | 'annual';
-  category: CashFlowCategory;
-}
+const emptyEntryDraft = (kind: EntryKind): CashFlowEntry => ({
+  id: createId(),
+  label: '',
+  amountCents: 0,
+  frequency: 'monthly',
+  category: kind === 'income' ? 'income' : 'housing',
+  startDate: todayIso(),
+  durationMonths: undefined,
+  notes: '',
+});
 
 const toDisplayAmount = (entry: CashFlowEntry, mode: ViewMode): number => {
   if (mode === 'monthly') {
     return entry.frequency === 'monthly' ? entry.amountCents : Math.round(entry.amountCents / 12);
   }
+
   return entry.frequency === 'annual' ? entry.amountCents : entry.amountCents * 12;
 };
 
-const buildSankeyOption = (entries: CashFlowEntry[], mode: ViewMode) => {
-  const incomeEntries = entries.filter((e) => e.category === 'income');
-  const expenseEntries = entries.filter((e) => e.category !== 'income');
-
-  const totalIncomeCents = incomeEntries.reduce((sum, e) => sum + toDisplayAmount(e, mode), 0);
-  const totalExpenseCents = expenseEntries.reduce((sum, e) => sum + toDisplayAmount(e, mode), 0);
-  const surplusCents = totalIncomeCents - totalExpenseCents;
-
-  if (totalIncomeCents === 0) return null;
-
-  // Group expenses by category
-  const categoryTotals = new Map<string, number>();
-  for (const entry of expenseEntries) {
-    const amount = toDisplayAmount(entry, mode);
-    categoryTotals.set(entry.category, (categoryTotals.get(entry.category) ?? 0) + amount);
+const buildDurationLabel = (entry: CashFlowEntry) => {
+  if (!entry.durationMonths || entry.durationMonths <= 0) {
+    return undefined;
   }
 
-  const incomeNodeName = 'Einnahmen';
-  const nodes: { name: string; itemStyle: { color: string } }[] = [
-    { name: incomeNodeName, itemStyle: { color: '#22c55e' } },
-  ];
+  const endDate = addMonths(entry.startDate ?? todayIso(), entry.durationMonths);
+  return `bis ${endDate} · wieder mehr Geld ab ${endDate}`;
+};
+
+const buildSankeyOption = (entries: CashFlowEntry[], categories: CashFlowCategoryConfig[], mode: ViewMode) => {
+  const incomeEntries = entries.filter((entry) => entry.category === 'income');
+  const expenseEntries = entries.filter((entry) => entry.category !== 'income');
+
+  const totalIncomeCents = incomeEntries.reduce((sum, entry) => sum + toDisplayAmount(entry, mode), 0);
+  const totalExpenseCents = expenseEntries.reduce((sum, entry) => sum + toDisplayAmount(entry, mode), 0);
+  const surplusCents = totalIncomeCents - totalExpenseCents;
+
+  if (totalIncomeCents === 0) {
+    return null;
+  }
+
+  const categoryTotals = new Map<string, number>();
+  for (const entry of expenseEntries) {
+    categoryTotals.set(entry.category, (categoryTotals.get(entry.category) ?? 0) + toDisplayAmount(entry, mode));
+  }
+
+  const categoryMap = new Map(categories.map((category) => [category.id, category]));
+  const availableNodeName = 'Verfuegbar';
+  const nodes: { name: string; itemStyle: { color: string } }[] = [];
   const links: { source: string; target: string; value: number }[] = [];
 
-  for (const [catId, amountCents] of categoryTotals.entries()) {
-    const cat = CATEGORY_MAP.get(catId as Exclude<CashFlowCategory, 'income'>);
-    if (cat && amountCents > 0) {
-      nodes.push({ name: cat.label, itemStyle: { color: cat.color } });
-      links.push({ source: incomeNodeName, target: cat.label, value: Math.max(amountCents / 100, 0.01) });
+  const formatNodeName = (name?: string) => {
+    if (!name) {
+      return '';
+    }
+
+    const [, displayName] = name.split('|');
+    if (displayName) {
+      return displayName;
+    }
+
+    if (name.startsWith('income:')) {
+      return 'Einnahmen';
+    }
+
+    if (name.startsWith('category:')) {
+      return name.replace('category:', 'Kategorie: ');
+    }
+
+    if (name.startsWith('entry:')) {
+      return name.replace('entry:', 'Eintrag: ');
+    }
+
+    return name;
+  };
+
+  for (const entry of incomeEntries) {
+    const entryNodeName = `income:${entry.id}|${entry.label}`;
+    nodes.push({ name: entryNodeName, itemStyle: { color: '#16a34a' } });
+    links.push({ source: entryNodeName, target: availableNodeName, value: Math.max(toDisplayAmount(entry, mode) / 100, 0.01) });
+  }
+
+  nodes.push({ name: availableNodeName, itemStyle: { color: '#4b5563' } });
+
+  for (const [categoryId, amountCents] of categoryTotals.entries()) {
+    const category = categoryMap.get(categoryId);
+    if (category && amountCents > 0) {
+      const categoryNodeName = `category:${category.id}|${category.label}`;
+      nodes.push({ name: categoryNodeName, itemStyle: { color: category.color } });
+      links.push({ source: availableNodeName, target: categoryNodeName, value: Math.max(amountCents / 100, 0.01) });
+
+      for (const entry of expenseEntries.filter((item) => item.category === categoryId)) {
+        const entryNodeName = `entry:${entry.id}|${entry.label}`;
+        nodes.push({ name: entryNodeName, itemStyle: { color: category.color } });
+        links.push({ source: categoryNodeName, target: entryNodeName, value: Math.max(toDisplayAmount(entry, mode) / 100, 0.01) });
+      }
     }
   }
 
   if (surplusCents > 0) {
     nodes.push({ name: 'Ueberschuss', itemStyle: { color: '#6b7280' } });
-    links.push({ source: incomeNodeName, target: 'Ueberschuss', value: surplusCents / 100 });
+    links.push({ source: availableNodeName, target: 'Ueberschuss', value: surplusCents / 100 });
   }
 
   return {
@@ -85,9 +128,10 @@ const buildSankeyOption = (entries: CashFlowEntry[], mode: ViewMode) => {
       trigger: 'item',
       formatter: (params: { name?: string; value?: number; dataType?: string; data?: { source?: string; target?: string } }) => {
         if (params.dataType === 'edge') {
-          return `${params.data?.source} \u2192 ${params.data?.target}: ${(params.value ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
+          return `${formatNodeName(params.data?.source)} -> ${formatNodeName(params.data?.target)}: ${(params.value ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
         }
-        return `${params.name}: ${(params.value ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
+
+        return `${formatNodeName(params.name)}: ${(params.value ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
       },
     },
     series: [
@@ -99,85 +143,117 @@ const buildSankeyOption = (entries: CashFlowEntry[], mode: ViewMode) => {
         links,
         nodeAlign: 'left',
         lineStyle: { color: 'gradient', curveness: 0.5, opacity: 0.45 },
-        label: { show: true, position: 'right' },
+        label: { show: true, position: 'right', formatter: (params: { name?: string }) => formatNodeName(params.name) },
       },
     ],
   };
 };
 
 export const CashFlowPage = () => {
-  const { data, addEntry, removeEntry } = useCashFlow();
+  const { data, addEntry, updateEntry, removeEntry, addCategory, updateCategory, removeCategory } = useCashFlow();
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [editingEntry, setEditingEntry] = useState<CashFlowEntry | null>(null);
+  const [entryKind, setEntryKind] = useState<EntryKind>('income');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#64748b');
+  const [newCategoryKind, setNewCategoryKind] = useState<EntryKind>('expense');
 
-  const [showIncomeForm, setShowIncomeForm] = useState(false);
-  const [incomeLabel, setIncomeLabel] = useState('');
-  const [incomeAmount, setIncomeAmount] = useState('');
-  const [incomeFrequency, setIncomeFrequency] = useState<'monthly' | 'annual'>('monthly');
+  const categories = data.categories;
+  const incomeCategory = categories.find((category) => category.id === 'income') ?? { id: 'income', label: 'Einnahmen', color: '#16a34a', kind: 'income' as const };
+  const expenseCategories = categories.filter((category) => category.kind === 'expense');
 
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [expenseLabel, setExpenseLabel] = useState('');
-  const [expenseAmount, setExpenseAmount] = useState('');
-  const [expenseFrequency, setExpenseFrequency] = useState<'monthly' | 'annual'>('monthly');
-  const [expenseCategory, setExpenseCategory] = useState<Exclude<CashFlowCategory, 'income'>>('housing');
+  const incomeEntries = data.entries.filter((entry) => entry.category === 'income');
+  const expenseEntries = data.entries.filter((entry) => entry.category !== 'income');
 
-  const incomeEntries = data.entries.filter((e) => e.category === 'income');
-  const expenseEntries = data.entries.filter((e) => e.category !== 'income');
+  const groupedExpenses = useMemo(() => {
+    const map = new Map<string, CashFlowEntry[]>();
+    for (const entry of expenseEntries) {
+      map.set(entry.category, [...(map.get(entry.category) ?? []), entry]);
+    }
+    return map;
+  }, [expenseEntries]);
 
-  const totalIncomeCents = incomeEntries.reduce((sum, e) => sum + toDisplayAmount(e, viewMode), 0);
-  const totalExpenseCents = expenseEntries.reduce((sum, e) => sum + toDisplayAmount(e, viewMode), 0);
+  const totalIncomeCents = incomeEntries.reduce((sum, entry) => sum + toDisplayAmount(entry, viewMode), 0);
+  const totalExpenseCents = expenseEntries.reduce((sum, entry) => sum + toDisplayAmount(entry, viewMode), 0);
   const surplusCents = totalIncomeCents - totalExpenseCents;
-
-  const savingsEntries = expenseEntries.filter((e) => e.category === 'savings');
-  const totalSavingsCents = savingsEntries.reduce((sum, e) => sum + toDisplayAmount(e, viewMode), 0);
+  const pensionEntries = expenseEntries.filter((entry) => entry.category === 'pension');
+  const savingsEntries = expenseEntries.filter((entry) => entry.category === 'savings');
+  const totalSavingsCents = [...savingsEntries, ...pensionEntries].reduce((sum, entry) => sum + toDisplayAmount(entry, viewMode), 0);
   const savingsRate = totalIncomeCents > 0 ? (totalSavingsCents / totalIncomeCents) * 100 : 0;
-
   const periodLabel = viewMode === 'monthly' ? 'monatlich' : 'jaehrlich';
 
-  const handleAddIncome = () => {
-    const amount = parseFloat(incomeAmount.replace(',', '.'));
-    if (!incomeLabel.trim() || !Number.isFinite(amount) || amount <= 0) return;
-    addEntry({ label: incomeLabel.trim(), amountCents: Math.round(amount * 100), frequency: incomeFrequency, category: 'income' });
-    setIncomeLabel('');
-    setIncomeAmount('');
-    setIncomeFrequency('monthly');
-    setShowIncomeForm(false);
+  const sankeyOption = buildSankeyOption(data.entries, categories, viewMode);
+
+  const openEditor = (kind: EntryKind, entry?: CashFlowEntry) => {
+    setEntryKind(kind);
+    setEditingEntry(entry ?? emptyEntryDraft(kind));
   };
 
-  const handleAddExpense = () => {
-    const amount = parseFloat(expenseAmount.replace(',', '.'));
-    if (!expenseLabel.trim() || !Number.isFinite(amount) || amount <= 0) return;
-    addEntry({ label: expenseLabel.trim(), amountCents: Math.round(amount * 100), frequency: expenseFrequency, category: expenseCategory });
-    setExpenseLabel('');
-    setExpenseAmount('');
-    setExpenseFrequency('monthly');
-    setExpenseCategory('housing');
-    setShowExpenseForm(false);
+  const closeEditor = () => {
+    setEditingEntry(null);
   };
 
-  const sankeyOption = buildSankeyOption(data.entries, viewMode);
+  const saveEntry = () => {
+    if (!editingEntry || !editingEntry.label.trim()) {
+      return;
+    }
+
+    const nextEntry = {
+      ...editingEntry,
+      label: editingEntry.label.trim(),
+      category: entryKind === 'income' ? 'income' : editingEntry.category,
+      durationMonths: editingEntry.durationMonths && editingEntry.durationMonths > 0 ? editingEntry.durationMonths : undefined,
+    };
+
+    if (data.entries.some((entry) => entry.id === nextEntry.id)) {
+      const { id: _id, ...changes } = nextEntry;
+      updateEntry(nextEntry.id, changes);
+    } else {
+      addEntry(nextEntry);
+    }
+
+    closeEditor();
+  };
+
+  const createCategory = () => {
+    if (!newCategoryName.trim()) {
+      return;
+    }
+
+    addCategory({ label: newCategoryName.trim(), color: newCategoryColor, kind: newCategoryKind });
+    setNewCategoryName('');
+    setNewCategoryColor('#64748b');
+    setNewCategoryKind('expense');
+  };
 
   return (
     <div className="cashflow-page">
+      <div className="chart-card cashflow-chart-card cashflow-chart-card--top">
+        <div className="chart-header">
+          <div>
+            <h3>Finanzfluss-Diagramm</h3>
+            <p>Links Einnahmen, rechts Ausgaben. Mehrere Eintraege pro Kategorie werden getrennt dargestellt.</p>
+          </div>
+        </div>
+        {sankeyOption ? (
+          <ReactECharts option={sankeyOption} style={{ height: 460, width: '100%' }} notMerge lazyUpdate />
+        ) : (
+          <p className="cashflow-chart-empty">
+            Tragen Sie Einnahmen und Ausgaben ein, um das Flussdiagramm zu sehen.
+          </p>
+        )}
+      </div>
+
       <div className="cashflow-header">
         <div>
           <h2 className="cashflow-title">Finanzfluss</h2>
-          <p className="cashflow-subtitle">Einnahmen, fixe Ausgaben und Sparquote im Ueberblick</p>
+          <p className="cashflow-subtitle">Einnahmen, Ausgaben, Kategorien und Laufzeiten im Ueberblick.</p>
         </div>
         <div className="cashflow-view-toggle" role="group" aria-label="Anzeige">
-          <button
-            type="button"
-            className={viewMode === 'monthly' ? 'active' : ''}
-            onClick={() => setViewMode('monthly')}
-            aria-pressed={viewMode === 'monthly'}
-          >
+          <button type="button" className={viewMode === 'monthly' ? 'active' : ''} onClick={() => setViewMode('monthly')} aria-pressed={viewMode === 'monthly'}>
             Monatlich
           </button>
-          <button
-            type="button"
-            className={viewMode === 'annual' ? 'active' : ''}
-            onClick={() => setViewMode('annual')}
-            aria-pressed={viewMode === 'annual'}
-          >
+          <button type="button" className={viewMode === 'annual' ? 'active' : ''} onClick={() => setViewMode('annual')} aria-pressed={viewMode === 'annual'}>
             Jaehrlich
           </button>
         </div>
@@ -214,192 +290,226 @@ export const CashFlowPage = () => {
         </div>
       </div>
 
-      <div className="cashflow-entries">
-        <section className="cashflow-section">
+      <div className="cashflow-layout">
+        <section className="cashflow-card">
           <div className="cashflow-section-header">
-            <h3>Einnahmen</h3>
-            <button
-              type="button"
-              className="cashflow-add-btn"
-              onClick={() => setShowIncomeForm((v) => !v)}
-              aria-expanded={showIncomeForm}
-            >
-              <Plus size={15} /> Eintrag hinzufuegen
+            <div>
+              <h3>Einnahmen</h3>
+              <p>Eintraege lassen sich direkt bearbeiten.</p>
+            </div>
+            <button type="button" className="cashflow-add-btn" onClick={() => openEditor('income')}>
+              <Plus size={15} /> Eintrag
             </button>
           </div>
 
-          {showIncomeForm && (
-            <div className="cashflow-form">
-              <input
-                type="text"
-                placeholder="Bezeichnung (z.B. Gehalt)"
-                value={incomeLabel}
-                onChange={(e) => setIncomeLabel(e.target.value)}
-                aria-label="Bezeichnung"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddIncome()}
-              />
-              <input
-                type="number"
-                placeholder="Betrag in EUR"
-                value={incomeAmount}
-                onChange={(e) => setIncomeAmount(e.target.value)}
-                min="0"
-                step="0.01"
-                aria-label="Betrag in EUR"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddIncome()}
-              />
-              <select
-                value={incomeFrequency}
-                onChange={(e) => setIncomeFrequency(e.target.value as 'monthly' | 'annual')}
-                aria-label="Haeufigkeit"
-              >
-                <option value="monthly">Monatlich</option>
-                <option value="annual">Jaehrlich</option>
-              </select>
-              <div className="cashflow-form-actions">
-                <button type="button" className="cashflow-save-btn" onClick={handleAddIncome}>
-                  Hinzufuegen
-                </button>
-                <button type="button" className="cashflow-cancel-btn" onClick={() => setShowIncomeForm(false)}>
-                  Abbrechen
-                </button>
-              </div>
+          <div className="cashflow-entry-group">
+            <div className="cashflow-category-summary" style={{ borderLeftColor: incomeCategory.color }}>
+              <strong>{incomeCategory.label}</strong>
+              <span>{formatCurrency(totalIncomeCents, 'EUR')}</span>
             </div>
-          )}
-
-          <ul className="cashflow-entry-list" aria-label="Einnahmen-Liste">
-            {incomeEntries.length === 0 && (
-              <li className="cashflow-empty">Noch keine Einnahmen eingetragen.</li>
-            )}
-            {incomeEntries.map((entry) => (
-              <li key={entry.id} className="cashflow-entry">
-                <span className="cashflow-entry-dot" style={{ backgroundColor: '#22c55e' }} />
-                <span className="cashflow-entry-label">{entry.label}</span>
-                <span className="cashflow-entry-freq">{entry.frequency === 'monthly' ? 'mtl.' : 'jaehrl.'}</span>
-                <span className="cashflow-entry-amount">{formatCurrency(toDisplayAmount(entry, viewMode), 'EUR')}</span>
-                <button
-                  type="button"
-                  className="cashflow-delete-btn"
-                  onClick={() => removeEntry(entry.id)}
-                  aria-label={`${entry.label} loeschen`}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </li>
-            ))}
-          </ul>
+            <div className="cashflow-entry-list">
+              {incomeEntries.length === 0 ? (
+                <div className="cashflow-empty">Noch keine Einnahmen eingetragen.</div>
+              ) : (
+                incomeEntries.map((entry) => (
+                  <article key={entry.id} className="cashflow-entry-card">
+                    <span className="cashflow-entry-dot" style={{ backgroundColor: incomeCategory.color }} />
+                    <div className="cashflow-entry-main">
+                      <strong>{entry.label}</strong>
+                      <span>{entry.frequency === 'monthly' ? 'monatlich' : 'jaehrlich'} · {formatCurrency(toDisplayAmount(entry, viewMode), 'EUR')}</span>
+                      {buildDurationLabel(entry) && <small>{buildDurationLabel(entry)}</small>}
+                    </div>
+                    <div className="cashflow-entry-actions">
+                      <button type="button" onClick={() => openEditor('income', entry)} aria-label={`${entry.label} bearbeiten`}>
+                        <PencilLine size={15} />
+                      </button>
+                      <button type="button" onClick={() => removeEntry(entry.id)} aria-label={`${entry.label} loeschen`}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </div>
         </section>
 
-        <section className="cashflow-section">
+        <section className="cashflow-card">
           <div className="cashflow-section-header">
-            <h3>Ausgaben</h3>
-            <button
-              type="button"
-              className="cashflow-add-btn"
-              onClick={() => setShowExpenseForm((v) => !v)}
-              aria-expanded={showExpenseForm}
-            >
-              <Plus size={15} /> Eintrag hinzufuegen
+            <div>
+              <h3>Ausgaben</h3>
+              <p>Mehrere Eintraege pro Kategorie werden gruppiert dargestellt.</p>
+            </div>
+            <button type="button" className="cashflow-add-btn" onClick={() => openEditor('expense')}>
+              <Plus size={15} /> Eintrag
             </button>
           </div>
 
-          {showExpenseForm && (
-            <div className="cashflow-form">
-              <input
-                type="text"
-                placeholder="Bezeichnung (z.B. Miete)"
-                value={expenseLabel}
-                onChange={(e) => setExpenseLabel(e.target.value)}
-                aria-label="Bezeichnung"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddExpense()}
-              />
-              <input
-                type="number"
-                placeholder="Betrag in EUR"
-                value={expenseAmount}
-                onChange={(e) => setExpenseAmount(e.target.value)}
-                min="0"
-                step="0.01"
-                aria-label="Betrag in EUR"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddExpense()}
-              />
-              <select
-                value={expenseFrequency}
-                onChange={(e) => setExpenseFrequency(e.target.value as 'monthly' | 'annual')}
-                aria-label="Haeufigkeit"
-              >
-                <option value="monthly">Monatlich</option>
-                <option value="annual">Jaehrlich</option>
-              </select>
-              <select
-                value={expenseCategory}
-                onChange={(e) => setExpenseCategory(e.target.value as Exclude<CashFlowCategory, 'income'>)}
-                aria-label="Kategorie"
-              >
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-              <div className="cashflow-form-actions">
-                <button type="button" className="cashflow-save-btn" onClick={handleAddExpense}>
-                  Hinzufuegen
-                </button>
-                <button type="button" className="cashflow-cancel-btn" onClick={() => setShowExpenseForm(false)}>
-                  Abbrechen
-                </button>
-              </div>
-            </div>
-          )}
-
-          <ul className="cashflow-entry-list" aria-label="Ausgaben-Liste">
-            {expenseEntries.length === 0 && (
-              <li className="cashflow-empty">Noch keine Ausgaben eingetragen.</li>
-            )}
-            {expenseEntries.map((entry) => {
-              const cat = CATEGORY_MAP.get(entry.category as Exclude<CashFlowCategory, 'income'>);
+          <div className="cashflow-category-list">
+            {expenseCategories.map((category) => {
+              const entries = groupedExpenses.get(category.id) ?? [];
+              const totalCategoryCents = entries.reduce((sum, entry) => sum + toDisplayAmount(entry, viewMode), 0);
               return (
-                <li key={entry.id} className="cashflow-entry">
-                  <span
-                    className="cashflow-entry-dot"
-                    style={{ backgroundColor: cat?.color ?? '#94a3b8' }}
-                    title={cat?.label}
-                  />
-                  <span className="cashflow-entry-label">{entry.label}</span>
-                  <span className="cashflow-entry-cat">{cat?.label ?? entry.category}</span>
-                  <span className="cashflow-entry-freq">{entry.frequency === 'monthly' ? 'mtl.' : 'jaehrl.'}</span>
-                  <span className="cashflow-entry-amount">{formatCurrency(toDisplayAmount(entry, viewMode), 'EUR')}</span>
-                  <button
-                    type="button"
-                    className="cashflow-delete-btn"
-                    onClick={() => removeEntry(entry.id)}
-                    aria-label={`${entry.label} loeschen`}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </li>
+                <article key={category.id} className="cashflow-category-card" style={{ borderLeftColor: category.color }}>
+                  <div className="cashflow-category-head">
+                    <div>
+                      <strong>{category.label}</strong>
+                      <span>{formatCurrency(totalCategoryCents, 'EUR')}</span>
+                    </div>
+                    <div className="cashflow-category-color" style={{ backgroundColor: category.color }} />
+                  </div>
+                  <div className="cashflow-entry-list">
+                    {entries.length === 0 ? (
+                      <div className="cashflow-empty compact">Keine Eintraege.</div>
+                    ) : (
+                      entries.map((entry) => (
+                        <article key={entry.id} className="cashflow-entry-card">
+                          <span className="cashflow-entry-dot" style={{ backgroundColor: category.color }} title={category.label} />
+                          <div className="cashflow-entry-main">
+                            <strong>{entry.label}</strong>
+                            <span>{entry.frequency === 'monthly' ? 'monatlich' : 'jaehrlich'} · {formatCurrency(toDisplayAmount(entry, viewMode), 'EUR')}</span>
+                            {buildDurationLabel(entry) && <small>{buildDurationLabel(entry)}</small>}
+                          </div>
+                          <div className="cashflow-entry-actions">
+                            <button type="button" onClick={() => openEditor('expense', entry)} aria-label={`${entry.label} bearbeiten`}>
+                              <PencilLine size={15} />
+                            </button>
+                            <button type="button" onClick={() => removeEntry(entry.id)} aria-label={`${entry.label} loeschen`}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </article>
               );
             })}
-          </ul>
+          </div>
         </section>
       </div>
 
-      <div className="chart-card cashflow-chart-card">
-        <div className="chart-header">
+      {editingEntry && (
+        <section className="cashflow-editor-card">
+          <div className="cashflow-section-header">
+            <div>
+              <h3>{data.entries.some((entry) => entry.id === editingEntry.id) ? 'Eintrag bearbeiten' : 'Eintrag anlegen'}</h3>
+              <p>Mit Laufzeit kann sichtbar gemacht werden, wann wieder mehr Geld verfuegbar ist.</p>
+            </div>
+            <button type="button" className="cashflow-cancel-btn" onClick={closeEditor}>
+              Abbrechen
+            </button>
+          </div>
+
+          <div className="editor-grid cashflow-editor-grid">
+            <label>
+              Bezeichnung
+              <input value={editingEntry.label} onChange={(event) => setEditingEntry({ ...editingEntry, label: event.target.value })} />
+            </label>
+            <label>
+              Betrag in EUR
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={editingEntry.amountCents / 100}
+                onChange={(event) => setEditingEntry({ ...editingEntry, amountCents: Math.round(Number(event.target.value || 0) * 100) })}
+              />
+            </label>
+            <label>
+              Haeufigkeit
+              <select value={editingEntry.frequency} onChange={(event) => setEditingEntry({ ...editingEntry, frequency: event.target.value as CashFlowEntry['frequency'] })}>
+                <option value="monthly">Monatlich</option>
+                <option value="annual">Jaehrlich</option>
+              </select>
+            </label>
+            <label>
+              Kategorie
+              <select
+                value={entryKind === 'income' ? 'income' : editingEntry.category}
+                onChange={(event) => setEditingEntry({ ...editingEntry, category: event.target.value })}
+                disabled={entryKind === 'income'}
+              >
+                {entryKind === 'income' ? (
+                  <option value="income">Einnahmen</option>
+                ) : (
+                  expenseCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.label}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            <label>
+              Startdatum
+              <input type="date" value={editingEntry.startDate ?? todayIso()} onChange={(event) => setEditingEntry({ ...editingEntry, startDate: event.target.value })} />
+            </label>
+            <label>
+              Laufzeit in Monaten
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={editingEntry.durationMonths ?? ''}
+                onChange={(event) => setEditingEntry({ ...editingEntry, durationMonths: event.target.value === '' ? undefined : Number(event.target.value) })}
+              />
+            </label>
+            <label className="editor-wide">
+              Notizen
+              <input value={editingEntry.notes ?? ''} onChange={(event) => setEditingEntry({ ...editingEntry, notes: event.target.value })} />
+            </label>
+          </div>
+
+          <div className="cashflow-form-actions">
+            <button type="button" className="cashflow-save-btn" onClick={saveEntry}>
+              Speichern
+            </button>
+            <button type="button" className="cashflow-cancel-btn" onClick={closeEditor}>
+              Verwerfen
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section className="cashflow-card">
+        <div className="cashflow-section-header">
           <div>
-            <h3>Finanzfluss-Diagramm</h3>
-            <p>Visualisierung der Geldfluesse ({periodLabel})</p>
+            <h3>Kategorien</h3>
+            <p>Farben und Bezeichnungen koennen angepasst und erweitert werden.</p>
           </div>
         </div>
-        {sankeyOption ? (
-          <ReactECharts option={sankeyOption} style={{ height: 420, width: '100%' }} notMerge lazyUpdate />
-        ) : (
-          <p className="cashflow-chart-empty">
-            Tragen Sie Einnahmen und Ausgaben ein, um das Flussdiagramm zu sehen.
-          </p>
-        )}
-      </div>
+
+        <div className="cashflow-category-admin">
+          <div className="cashflow-category-form">
+            <input placeholder="Neue Kategorie" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} />
+            <input type="color" value={newCategoryColor} onChange={(event) => setNewCategoryColor(event.target.value)} />
+            <select value={newCategoryKind} onChange={(event) => setNewCategoryKind(event.target.value as EntryKind)}>
+              <option value="expense">Ausgabe</option>
+              <option value="income">Einnahme</option>
+            </select>
+            <button type="button" onClick={createCategory}>
+              <CirclePlus size={15} /> Kategorie
+            </button>
+          </div>
+
+          <div className="cashflow-category-pills">
+            {categories.map((category) => (
+              <div key={category.id} className="cashflow-category-pill" style={{ borderColor: category.color }}>
+                <input value={category.label} onChange={(event) => updateCategory(category.id, { label: event.target.value })} />
+                <input type="color" value={category.color} onChange={(event) => updateCategory(category.id, { color: event.target.value })} />
+                {category.id !== 'income' && (
+                  <button type="button" className="cashflow-delete-btn" onClick={() => removeCategory(category.id)} aria-label={`${category.label} entfernen`}>
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="cashflow-chart-footnote">Anzeige: {periodLabel}</div>
     </div>
   );
 };

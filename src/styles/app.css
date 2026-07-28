@@ -1,19 +1,71 @@
 :root {
-  --bg: #f4f6f4;
+  color-scheme: light;
+  --bg: #f6f8fa;
   --surface: #ffffff;
-  --surface-2: #f3f9f5;
-  --text: #102a1b;
-  --muted: #5a6f62;
-  --accent: #1f7a8c;
-  --danger: #b42318;
-  --border: #dce7df;
-  --focus: #0f766e;
+  --surface-2: #eef2f6;
+  --surface-3: #dde4ec;
+  --text: #1f2328;
+  --muted: #57606a;
+  --accent: #0969da;
+  --danger: #cf222e;
+  --border: #d0d7de;
+  --focus: #0969da;
+  --sidebar-bg: #0f172a;
+  --sidebar-surface: rgba(255, 255, 255, 0.08);
+  --sidebar-surface-strong: rgba(255, 255, 255, 0.14);
+  --sidebar-text: #f8fafc;
+  --sidebar-muted: rgba(248, 250, 252, 0.68);
+  --shadow: 0 16px 40px rgba(31, 35, 40, 0.08);
 
   font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   line-height: 1.4;
   color: var(--text);
   background-color: var(--bg);
-  background-image: radial-gradient(circle at 10% 10%, #e7f7ed 0%, var(--bg) 45%, #e8efe9 100%);
+  background-image: radial-gradient(circle at top left, rgba(9, 105, 218, 0.08), transparent 35%), linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #21262d;
+  --surface-3: #30363d;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --danger: #f85149;
+  --border: #30363d;
+  --focus: #58a6ff;
+  --sidebar-bg: #0b1120;
+  --sidebar-surface: rgba(255, 255, 255, 0.05);
+  --sidebar-surface-strong: rgba(255, 255, 255, 0.12);
+  --sidebar-text: #e6edf3;
+  --sidebar-muted: rgba(230, 237, 243, 0.72);
+  --shadow: 0 18px 42px rgba(1, 4, 9, 0.4);
+  background-image: radial-gradient(circle at top left, rgba(88, 166, 255, 0.08), transparent 35%), linear-gradient(180deg, #0d1117 0%, #111827 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    color-scheme: dark;
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #21262d;
+    --surface-3: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --danger: #f85149;
+    --border: #30363d;
+    --focus: #58a6ff;
+    --sidebar-bg: #0b1120;
+    --sidebar-surface: rgba(255, 255, 255, 0.05);
+    --sidebar-surface-strong: rgba(255, 255, 255, 0.12);
+    --sidebar-text: #e6edf3;
+    --sidebar-muted: rgba(230, 237, 243, 0.72);
+    --shadow: 0 18px 42px rgba(1, 4, 9, 0.4);
+    background-image: radial-gradient(circle at top left, rgba(88, 166, 255, 0.08), transparent 35%), linear-gradient(180deg, #0d1117 0%, #111827 100%);
+  }
 }
 
 * {
@@ -23,6 +75,12 @@
 body {
   margin: 0;
   min-width: 320px;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#root {
   min-height: 100vh;
 }
 
@@ -279,6 +337,30 @@ textarea:focus-visible {
   align-items: center;
 }
 
+.sidebar-subnav {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-subnav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--sidebar-muted);
+}
+
+.sidebar-subnav h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .sidebar-header {
   display: flex;
   justify-content: space-between;
@@ -345,7 +427,7 @@ textarea:focus-visible {
 .sidebar-icon-button:hover,
 .plan-action-icon:hover,
 .plan-delete-button:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--sidebar-surface-strong);
 }
 
 .plan-list {
@@ -359,13 +441,13 @@ textarea:focus-visible {
 
 .plan-list li {
   border-left: 4px solid transparent;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 0.45rem;
+  background: var(--sidebar-surface);
+  border-radius: 12px;
+  padding: 0.55rem;
 }
 
 .plan-list li.active {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--sidebar-surface-strong);
 }
 
 .plan-main {
@@ -403,7 +485,7 @@ textarea:focus-visible {
 }
 
 .plan-details small {
-  color: rgba(243, 255, 248, 0.72);
+  color: var(--sidebar-muted);
 }
 
 .plan-actions {
@@ -419,7 +501,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
-  color: rgba(243, 255, 248, 0.8);
+  color: var(--sidebar-muted);
   font-size: 0.78rem;
 }
 
@@ -479,9 +561,54 @@ textarea:focus-visible {
   overflow: auto;
 }
 
+.plan-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+  align-items: start;
+}
+
+.plan-secondary-sidebar {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+}
+
+.plan-secondary-sidebar .plan-list {
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.plan-workspace-content {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.projection-date-control--plans {
+  margin-top: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
 .topbar h1 {
   margin: 0;
-  font-size: 1.8rem;
+  font-size: clamp(1.45rem, 2vw, 2rem);
 }
 
 .topbar {
@@ -601,6 +728,10 @@ textarea:focus-visible {
 
 .chart-card {
   margin-top: 1rem;
+}
+
+.cashflow-chart-card--top {
+  margin-top: 0;
 }
 
 .chart-header,
@@ -936,6 +1067,14 @@ td {
     grid-template-columns: 1fr;
   }
 
+  .plan-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-secondary-sidebar {
+    position: static;
+  }
+
   .chart-header,
   .chart-view-bar {
     align-items: flex-start;
@@ -954,18 +1093,6 @@ td {
 
   .start-features {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141918;
-    --surface: #1b2320;
-    --surface-2: #222d29;
-    --text: #eff6f1;
-    --muted: #a5b8ad;
-    --border: #32443d;
-    background-image: radial-gradient(circle at 10% 10%, #1b2b22 0%, #141918 55%, #1a2520 100%);
   }
 }
 
@@ -1257,5 +1384,285 @@ td {
 
   .cashflow-header {
     flex-direction: column;
+  }
+}
+
+/* ── New Layouts ───────────────────────────────────────── */
+
+.cashflow-layout,
+.cashflow-category-admin,
+.loan-page,
+.loan-list,
+.loan-summary-grid,
+.loan-special-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.cashflow-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cashflow-card,
+.cashflow-editor-card,
+.loan-editor-card,
+.loan-list-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.cashflow-section-header,
+.loan-editor-head,
+.loan-list-head,
+.page-section-head,
+.cashflow-category-head,
+.loan-card-head,
+.loan-card-body,
+.loan-specials-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cashflow-section-header h3,
+.loan-editor-head h3,
+.loan-list-head h3,
+.page-section-head h2,
+.cashflow-category-head strong,
+.loan-card h4,
+.loan-specials-head h4 {
+  margin: 0;
+}
+
+.cashflow-section-header p,
+.loan-editor-head p,
+.loan-list-head p,
+.page-section-head p,
+.cashflow-category-head span,
+.loan-card p,
+.loan-muted,
+.cashflow-chart-empty {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.cashflow-add-btn,
+.cashflow-save-btn,
+.cashflow-cancel-btn,
+.loan-editor-actions button,
+.cashflow-form-actions button,
+.cashflow-category-form button {
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+}
+
+.cashflow-add-btn,
+.cashflow-category-form button,
+.loan-editor-actions button,
+.cashflow-save-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+}
+
+.cashflow-cancel-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.cashflow-entry-group,
+.cashflow-category-card,
+.cashflow-entry-list,
+.cashflow-category-pills,
+.cashflow-category-form,
+.loan-summary-grid,
+.loan-list,
+.loan-special-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cashflow-category-summary,
+.cashflow-category-card,
+.cashflow-entry-card,
+.cashflow-category-pill,
+.loan-card,
+.loan-summary-tile,
+.loan-special-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.cashflow-category-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-left: 4px solid var(--accent);
+}
+
+.cashflow-entry-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.cashflow-entry-main {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.cashflow-entry-main small {
+  color: var(--muted);
+}
+
+.cashflow-entry-actions,
+.loan-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cashflow-entry-actions button,
+.loan-card-actions button,
+.cashflow-delete-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.cashflow-delete-btn {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+
+.cashflow-category-head,
+.loan-card-body {
+  align-items: center;
+}
+
+.cashflow-category-color,
+.cashflow-entry-dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.cashflow-category-form {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.cashflow-category-form input,
+.cashflow-category-form select,
+.cashflow-category-pill input,
+.cashflow-editor-card input,
+.cashflow-editor-card select,
+.loan-editor-card input,
+.loan-editor-card select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.55rem 0.65rem;
+}
+
+.cashflow-category-pill {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  padding: 0.65rem;
+}
+
+.cashflow-chart-card {
+  margin-top: 0;
+}
+
+.cashflow-chart-empty {
+  padding: 2rem;
+  text-align: center;
+}
+
+.loan-summary-tile {
+  padding: 0.75rem 0.85rem;
+}
+
+.loan-summary-tile span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.loan-list {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.loan-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+}
+
+.loan-special-item {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) auto;
+  gap: 0.65rem;
+  padding: 0.75rem;
+}
+
+.loan-grid,
+.cashflow-editor-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.loan-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.loan-chart-card {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.loan-chart-empty {
+  padding: 1rem 0.25rem 0.2rem;
+}
+
+@media (max-width: 980px) {
+  .cashflow-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cashflow-category-form {
+    grid-template-columns: 1fr;
+  }
+
+  .loan-card-head,
+  .loan-card-body,
+  .loan-editor-head,
+  .loan-list-head,
+  .page-section-head,
+  .loan-chart-grid {
+    flex-direction: column;
+  }
+
+  .loan-chart-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -261,17 +261,14 @@ export interface CalculationRequest {
   historicalPrices?: HistoricalPricePoint[];
 }
 
-export type CashFlowCategory =
-  | 'income'
-  | 'housing'
-  | 'insurance'
-  | 'contracts'
-  | 'pension'
-  | 'savings'
-  | 'mobility'
-  | 'groceries'
-  | 'entertainment'
-  | 'other';
+export type CashFlowCategory = string;
+
+export interface CashFlowCategoryConfig {
+  id: string;
+  label: string;
+  color: string;
+  kind: 'income' | 'expense';
+}
 
 export interface CashFlowEntry {
   id: string;
@@ -279,8 +276,36 @@ export interface CashFlowEntry {
   amountCents: number;
   frequency: 'monthly' | 'annual';
   category: CashFlowCategory;
+  startDate?: string;
+  durationMonths?: number;
+  notes?: string;
 }
 
 export interface CashFlowData {
   entries: CashFlowEntry[];
+  categories: CashFlowCategoryConfig[];
+}
+
+export interface LoanSpecialPayment {
+  id: string;
+  monthIndex: number;
+  amountCents: number;
+  label?: string;
+}
+
+export interface LoanEntry {
+  id: string;
+  name: string;
+  principalCents: number;
+  annualInterestRatePercent: number;
+  termMonths: number;
+  monthlyPaymentCents: number;
+  extraPaymentCents: number;
+  startDate: string;
+  specialPayments: LoanSpecialPayment[];
+  notes?: string;
+}
+
+export interface LoanData {
+  loans: LoanEntry[];
 }

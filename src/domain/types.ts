@@ -260,3 +260,27 @@ export interface CalculationRequest {
   inflationMode?: 'off' | 'fixed' | 'min' | 'base' | 'max';
   historicalPrices?: HistoricalPricePoint[];
 }
+
+export type CashFlowCategory =
+  | 'income'
+  | 'housing'
+  | 'insurance'
+  | 'contracts'
+  | 'pension'
+  | 'savings'
+  | 'mobility'
+  | 'groceries'
+  | 'entertainment'
+  | 'other';
+
+export interface CashFlowEntry {
+  id: string;
+  label: string;
+  amountCents: number;
+  frequency: 'monthly' | 'annual';
+  category: CashFlowCategory;
+}
+
+export interface CashFlowData {
+  entries: CashFlowEntry[];
+}

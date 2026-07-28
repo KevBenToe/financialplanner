@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { ComparisonTable } from '../components/ComparisonTable';
 import { AppStatusBar } from '../components/AppStatusBar';
+import { CashFlowPage } from '../components/CashFlowPage';
 import { FinanceChart } from '../components/FinanceChart';
 import { ImportExportPanel } from '../components/ImportExportPanel';
 import { KpiCards } from '../components/KpiCards';
@@ -29,7 +30,7 @@ export const DashboardPage = () => {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [startModalDismissed, setStartModalDismissed] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'plan'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'plan' | 'cashflow'>('dashboard');
   const [projectDataOpen, setProjectDataOpen] = useState(false);
 
   const selectedProjection = useMemo(
@@ -74,6 +75,7 @@ export const DashboardPage = () => {
           setActiveView('plan');
         }}
         onShowDashboard={() => setActiveView('dashboard')}
+        onShowCashFlow={() => setActiveView('cashflow')}
         onAddPlan={() => void addPlan()}
         onDeletePlan={(id) => {
           if (window.confirm('Sparplan wirklich loeschen?')) {
@@ -152,6 +154,8 @@ export const DashboardPage = () => {
               }}
             />
           </>
+        ) : activeView === 'cashflow' ? (
+          <CashFlowPage />
         ) : (
           <>
             <KpiCards selectedPlan={selectedPlan} projection={selectedProjection} projectionEndDate={state.projectionEndDate} />

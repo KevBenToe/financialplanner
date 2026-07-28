@@ -1,4 +1,4 @@
-import { Copy, Download, Eye, EyeOff, LayoutDashboard, Menu, Plus, X } from 'lucide-react';
+import { ArrowRightLeft, Copy, Download, Eye, EyeOff, LayoutDashboard, Menu, Plus, X } from 'lucide-react';
 
 import type { SavingsPlan } from '../domain/types';
 import { formatCurrency } from '../utils/money';
@@ -20,9 +20,10 @@ const productTypeLabels: Record<SavingsPlan['productType'], string> = {
 interface PlanSidebarProps {
   plans: SavingsPlan[];
   selectedPlanId?: string;
-  activeView: 'dashboard' | 'plan';
+  activeView: 'dashboard' | 'plan' | 'cashflow';
   onSelectPlan: (id: string) => void;
   onShowDashboard: () => void;
+  onShowCashFlow: () => void;
   onAddPlan: () => void;
   onDeletePlan: (id: string) => void;
   onDuplicatePlan: (plan: SavingsPlan) => void;
@@ -39,6 +40,7 @@ export const PlanSidebar = ({
   activeView,
   onSelectPlan,
   onShowDashboard,
+  onShowCashFlow,
   onAddPlan,
   onDeletePlan,
   onDuplicatePlan,
@@ -61,6 +63,10 @@ export const PlanSidebar = ({
         <button type="button" className={`sidebar-nav-button ${activeView === 'dashboard' ? 'active' : ''}`} onClick={onShowDashboard} title="Dashboard" aria-label="Dashboard">
           <LayoutDashboard size={19} />
           {!collapsed && <span>Dashboard</span>}
+        </button>
+        <button type="button" className={`sidebar-nav-button ${activeView === 'cashflow' ? 'active' : ''}`} onClick={onShowCashFlow} title="Finanzfluss" aria-label="Finanzfluss">
+          <ArrowRightLeft size={19} />
+          {!collapsed && <span>Finanzfluss</span>}
         </button>
       </nav>
 
